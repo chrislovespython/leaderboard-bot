@@ -6,6 +6,8 @@ import os
 from utils import db
 from datetime import datetime
 from dotenv import load_dotenv
+from threading import Thread
+from flask import Flask
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
@@ -16,7 +18,26 @@ intents.guilds = True
 intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-    
+
+# Flask web server to keep bot alive
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is alive!", 200
+
+@app.route('/health')
+def health():
+    return "OK", 200
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    server = Thread(target=run_flask)
+    server.daemon = True
+    server.start()
+
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
@@ -210,7 +231,6 @@ async def review(interaction: discord.Interaction):
 @commands.has_permissions(ban_members=True)
 async def banuser(ctx: discord.Interaction, member: discord.Member, reason:str="No reason provided"):
     try:
-        # Try to send a DM first
         dm_message = f"You have been banned from {ctx.guild.name} for: {reason}"
         await member.send(dm_message)
     except discord.Forbidden:
@@ -309,7 +329,6 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
     else:
         await interaction.response.send_message(f"⚠️ An error occurred: `{error}`", ephemeral=True)
 
-
+# Start the web server and bot
+keep_alive()
 bot.run(TOKEN)
-
- 
